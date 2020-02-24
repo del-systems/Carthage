@@ -1258,6 +1258,7 @@ public final class Project { // swiftlint:disable:this type_body_length
 	/// Returns a producer-of-producers representing each scheme being built.
 	public func buildCheckedOutDependenciesWithOptions( // swiftlint:disable:this cyclomatic_complexity function_body_length
 		_ options: BuildOptions,
+		_ concurrencyOptions: ConcurrencyOptions,
 		dependenciesToBuild: [String]? = nil,
 		sdkFilter: @escaping SDKFilterCallback = { sdks, _, _, _ in .success(sdks) }
 	) -> BuildSchemeProducer {
@@ -1299,7 +1300,7 @@ public final class Project { // swiftlint:disable:this type_body_length
 			}
 			.flatMap(.concat) { (dependencies: [(Dependency, PinnedVersion)]) -> SignalProducer<(Dependency, PinnedVersion), CarthageError> in
 				return SignalProducer(dependencies)
-					.flatMap(.concurrent(limit: 4)) { dependency, version -> SignalProducer<(Dependency, PinnedVersion), CarthageError> in
+					.flatMap(.concurrent(limit: concurrencyOptions.concurrency)) { dependency, version -> SignalProducer<(Dependency, PinnedVersion), CarthageError> in
 						switch dependency {
 						case .git, .gitHub:
 							guard options.useBinaries else {

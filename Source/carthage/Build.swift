@@ -26,10 +26,18 @@ extension BuildOptions: OptionsProtocol {
 	}
 }
 
+extension ConcurrencyOptions: OptionsProtocol {
+	public static func evaluate(_ mode: CommandMode) -> Result<ConcurrencyOptions, CommandantError<NoError>> {
+		return curry(ConcurrencyOptions.init)
+			<*> mode <| Option(key: "concurrency-limit", defaultValue: UInt(1), usage: "Limit concurrency used for building the project. Defaults to 'ProcessInfo.processInfo.activeProcessorCount'")
+	}
+}
+
 /// Type that encapsulates the configuration and evaluation of the `build` subcommand.
 public struct BuildCommand: CommandProtocol {
 	public struct Options: OptionsProtocol {
 		public let buildOptions: BuildOptions
+		public let concurrencyOptions: ConcurrencyOptions
 		public let skipCurrent: Bool
 		public let colorOptions: ColorOptions
 		public let isVerbose: Bool
@@ -59,6 +67,7 @@ public struct BuildCommand: CommandProtocol {
 			
 			return curry(Options.init)
 				<*> BuildOptions.evaluate(mode)
+				<*> ConcurrencyOptions.evaluate(mode)
 				<*> mode <| Option(key: "skip-current", defaultValue: true, usage: "don't skip building the Carthage project (in addition to its dependencies)")
 				<*> ColorOptions.evaluate(mode)
 				<*> mode <| Option(key: "verbose", defaultValue: false, usage: "print xcodebuild output inline")
@@ -148,7 +157,7 @@ public struct BuildCommand: CommandProtocol {
 				}
 			}
 			.flatMap(.merge) { project in
-				return project.buildCheckedOutDependenciesWithOptions(options.buildOptions, dependenciesToBuild: options.dependenciesToBuild)
+				return project.buildCheckedOutDependenciesWithOptions(options.buildOptions, options.concurrencyOptions, dependenciesToBuild: options.dependenciesToBuild)
 			}
 
 		if !shouldBuildCurrentProject {
